@@ -74,14 +74,15 @@ export const getPosts = (req, res) => {
   db.query(disableStrictMode, (err) => {
       if (err) {
         console.error("Lỗi tắt strict mode:", err);
-        return res.status(500).send(err);
+        // Provide structured JSON so deployments return clear info
+        return res.status(500).json({ error: err.message || err, fatal: err.fatal || false, where: 'disableStrictMode' });
       }
 
       // Bước 2: Chạy câu lệnh chính sau khi đã tắt chế độ khắt khe
       db.query(q, params, (err, data) => {
         if (err) {
           console.error("Lỗi truy vấn bài viết:", err);
-          return res.status(500).json({ error: err.message || err, fatal: err.fatal || false });
+          return res.status(500).json({ error: err.message || err, fatal: err.fatal || false, where: 'queryPosts' });
         }
         return res.status(200).json(data);
       });
