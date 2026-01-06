@@ -8,13 +8,20 @@ export const db = mysql.createConnection({
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "web_news",
-  port: process.env.DB_PORT || 3307,
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
 });
 
+// Attempt to connect and provide clearer logging for remote deployments
 db.connect((err) => {
   if (err) {
     console.error("❌ MySQL Connection Failed:", err);
   } else {
     console.log("✅ MySQL Connected!");
   }
+});
+
+// Reconnect on fatal errors (basic handling)
+db.on('error', (err) => {
+  console.error('MySQL connection error:', err);
+  // Depending on environment you might want to attempt reconnect here
 });

@@ -21,15 +21,27 @@ const app = express();
 // ==========================================
 // 1. CẤU HÌNH CORS (PHẢI NẰM TRÊN CÙNG)
 // ==========================================
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://project-web-new-ten.vercel.app" // Domain Frontend sau khi deploy (sẽ thêm sau)
-];
+const FRONTEND_URLS = process.env.FRONTEND_URLS || "http://localhost:5173,https://project-web-new-ten.vercel.app";
+const allowedOrigins = FRONTEND_URLS.split(',').map(s => s.trim());
+console.log("🔧 Allowed frontend origins:", allowedOrigins);
 
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow server-to-server, mobile, curl, etc.
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    console.warn('Blocked CORS request from:', origin);
+    return callback(new Error('CORS policy: This origin is not allowed'));
+  },
+  credentials: true // Quan trọng: Cho phép nhận Cookie
 }));
+
+// Health endpoint for quick diagnostics
+app.get('/health', (req, res) => {
+  db.query('SELECT 1', (err) => {
+    if (err) return res.status(500).json({ db: false, error: err.message });
+    return res.json({ db: true });
+  });
+});
 
 // ==========================================
 // 2. CẤU HÌNH PARSER (ĐỌC DỮ LIỆU)
