@@ -3,25 +3,27 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const db = mysql.createConnection({
+// Sử dụng createPool thay vì createConnection
+export const db = mysql.createPool({
   host: process.env.DB_HOST || "127.0.0.1",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "web_news",
-  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+  port: process.env.DB_PORT || 3306, // Lưu ý: Cloud thường dùng 3306 hoặc port riêng, ít khi dùng 3307 như XAMPP
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  // Cấu hình SSL: Bắt buộc đối với nhiều Cloud Database (như Aiven, Azure...)
+  // Nếu vẫn lỗi kết nối, hãy thử bỏ comment dòng ssl bên dưới:
+  // ssl: { rejectUnauthorized: false } 
 });
 
-// Attempt to connect and provide clearer logging for remote deployments
-db.connect((err) => {
+// Kiểm tra kết nối ban đầu
+db.getConnection((err, connection) => {
   if (err) {
-    console.error("❌ MySQL Connection Failed:", err);
+    console.error("❌ Lỗi kết nối MySQL:", err);
   } else {
-    console.log("✅ MySQL Connected!");
+    console.log("✅ Đã kết nối MySQL thành công!");
+    connection.release(); // Trả kết nối về pool ngay sau khi test xong
   }
-});
-
-// Reconnect on fatal errors (basic handling)
-db.on('error', (err) => {
-  console.error('MySQL connection error:', err);
-  // Depending on environment you might want to attempt reconnect here
 });
