@@ -21,9 +21,14 @@ const app = express();
 // ==========================================
 // 1. CẤU HÌNH CORS (PHẢI NẰM TRÊN CÙNG)
 // ==========================================
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://project-web-new-ten.vercel.app/" // Domain Frontend sau khi deploy (sẽ thêm sau)
+];
+
 app.use(cors({
-  origin: "http://localhost:5173", 
-  credentials: true // Quan trọng: Cho phép nhận Cookie
+  origin: allowedOrigins,
+  credentials: true
 }));
 
 // ==========================================

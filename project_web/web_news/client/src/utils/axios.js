@@ -2,7 +2,10 @@ import axios from "axios";
 
 // Configure axios to send credentials (cookies) with all requests
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = "http://localhost:8800/api";
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8800/api";
+
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = apiUrl;
 
 // Add request interceptor for debugging
 axios.interceptors.request.use(
