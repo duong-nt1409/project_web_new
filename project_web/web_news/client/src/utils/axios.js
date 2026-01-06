@@ -3,13 +3,25 @@ import axios from "axios";
 // Configure axios to send credentials (cookies) with all requests
 axios.defaults.withCredentials = true;
 
-// Build API base URL from Vite env var (VITE_API_URL). If provided without trailing '/api',
-// append '/api'. In production set VITE_API_URL to your backend origin (e.g., https://api.example.com)
+// Build API base URL from Vite env var (VITE_API_URL).
+// Accepts either an origin (https://api.example.com) or origin + /api
+// The logic below avoids duplicating `/api` if the env var already contains it.
 const envUrl = import.meta.env.VITE_API_URL;
-const apiUrl = envUrl ? envUrl.replace(/\/$/, "") + "/api" : "http://localhost:8800/api";
+let apiUrl;
+if (envUrl) {
+  const normalized = envUrl.replace(/\/$/, "");
+  apiUrl = normalized.endsWith("/api") ? normalized : normalized + "/api";
+  if (normalized.endsWith("/api")) {
+    console.log("🔧 VITE_API_URL already contains '/api' — using as-is:", apiUrl);
+  } else {
+    console.log("🔧 Normalized VITE_API_URL and appended '/api':", apiUrl);
+  }
+} else {
+  apiUrl = "http://localhost:8800/api";
+  console.log("🔧 No VITE_API_URL set — defaulting to:", apiUrl);
+}
 
 axios.defaults.baseURL = apiUrl;
-console.log("🔧 Using API base URL:", axios.defaults.baseURL);
 
 // Add request interceptor for debugging
 axios.interceptors.request.use(
