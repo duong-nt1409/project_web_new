@@ -20,9 +20,9 @@ import ViewedPosts from "./pages/ViewedPosts"
 import AdminDashboard from "./pages/AdminDashboard";
 import PostsDetail from "./pages/PostsDetail"; 
 import "./style.scss";
-import axios from "../../utils/axios";
+import axios from "./utils/axios";
 // Cấu hình Axios Global (Chuẩn)
-axios.defaults.withCredentials = true;
+// axios defaults (baseURL, withCredentials) are configured in `src/utils/axios.js`
 
 const Layout = () => {
   return (

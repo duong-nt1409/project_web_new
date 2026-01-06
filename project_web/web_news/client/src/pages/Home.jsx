@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import axios from "../../utils/axios";
+import axios from "../utils/axios";
 import moment from "moment";
 import Trending from "../components/Trending";
 
@@ -12,7 +12,7 @@ const Home = () => {
     const fetchData = async () => {
       try {
         const query = cat ? cat : "?sortBy=random";
-        const res = await axios.get(`http://localhost:8800/api/posts${cat}`);
+        const res = await axios.get(`/posts${cat}`);
         setPosts(res.data);
       } catch (err) {
         console.log(err);
