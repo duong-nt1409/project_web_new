@@ -13,10 +13,10 @@ export const sendEmail = async (to, subject, htmlContent) => {
   }
 
   try {
-    // SỬ DỤNG CỔNG 587 VÀ IPv4 (Giải pháp sửa lỗi Timeout)
+    // SỬ DỤNG CỔNG 2525 VÀ IPv4 (Giải pháp sửa lỗi Timeout)
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
-      port: 587,            // Dùng cổng 587 thay vì 465
+      port: 2525,            // Dùng cổng 587 thay vì 465
       secure: false,        // false cho cổng 587 (dùng STARTTLS)
       auth: {
         user: emailUser,
