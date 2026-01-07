@@ -97,59 +97,102 @@ export const addToHistory = (req, res) => {
     const userId = userInfo.id;
     const postId = req.body.postId;
 
-    // Use transaction + SELECT ... FOR UPDATE to avoid race conditions and double increments
-    db.beginTransaction((err) => {
+    // 1. LẤY KẾT NỐI TỪ POOL (Fix lỗi db.beginTransaction is not a function)
+    db.getConnection((err, connection) => {
       if (err) return res.status(500).json(err);
 
-      const qCheck = "SELECT id FROM ReadHistory WHERE user_id = ? AND post_id = ? FOR UPDATE";
-      db.query(qCheck, [userId, postId], (err, data) => {
+      // 2. BẮT ĐẦU TRANSACTION TRÊN KẾT NỐI VỪA LẤY
+      connection.beginTransaction((err) => {
         if (err) {
-          return db.rollback(() => res.status(500).json(err));
+          connection.release(); // ⚠️ Luôn release nếu lỗi
+          return res.status(500).json(err);
         }
 
-        if (data.length > 0) {
-          // Already exists -> update viewed_at
-          const qUpdate = "UPDATE ReadHistory SET viewed_at = NOW() WHERE id = ?";
-          db.query(qUpdate, [data[0].id], (err) => {
-            if (err) return db.rollback(() => res.status(500).json(err));
-            db.commit((err) => {
-              if (err) return db.rollback(() => res.status(500).json(err));
-              return res.status(200).json("Updated history");
+        const qCheck = "SELECT id FROM ReadHistory WHERE user_id = ? AND post_id = ? FOR UPDATE";
+        
+        connection.query(qCheck, [userId, postId], (err, data) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release(); // ⚠️ Release sau khi rollback
+              res.status(500).json(err);
             });
-          });
-        } else {
-          // Not viewed before -> insert + increment NewsStats atomically
-          const qInsert = "INSERT INTO ReadHistory(user_id, post_id, viewed_at) VALUES (?, ?, NOW())";
-          db.query(qInsert, [userId, postId], (err) => {
-            if (err) return db.rollback(() => res.status(500).json(err));
+          }
 
-            // Update NewsStats (create if missing)
-            const qCheckStats = "SELECT post_id FROM NewsStats WHERE post_id = ?";
-            db.query(qCheckStats, [postId], (err, stats) => {
-              if (err) return db.rollback(() => res.status(500).json(err));
-
-              if (stats.length === 0) {
-                const qInsertStats = "INSERT INTO NewsStats (post_id, view_count, comment_count, rating_avg) VALUES (?, 1, 0, 0)";
-                db.query(qInsertStats, [postId], (err) => {
-                  if (err) return db.rollback(() => res.status(500).json(err));
-                  db.commit((err) => {
-                    if (err) return db.rollback(() => res.status(500).json(err));
-                    return res.status(200).json("Đã cập nhật lịch sử.");
-                  });
-                });
-              } else {
-                const qUpdateStats = "UPDATE NewsStats SET view_count = view_count + 1 WHERE post_id = ?";
-                db.query(qUpdateStats, [postId], (err) => {
-                  if (err) return db.rollback(() => res.status(500).json(err));
-                  db.commit((err) => {
-                    if (err) return db.rollback(() => res.status(500).json(err));
-                    return res.status(200).json("Đã cập nhật lịch sử.");
-                  });
+          if (data.length > 0) {
+            // Đã xem rồi -> Cập nhật thời gian
+            const qUpdate = "UPDATE ReadHistory SET viewed_at = NOW() WHERE id = ?";
+            connection.query(qUpdate, [data[0].id], (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json(err);
                 });
               }
+              connection.commit((err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json(err);
+                  });
+                }
+                connection.release(); // ✅ XONG VIỆC: TRẢ KẾT NỐI
+                return res.status(200).json("Updated history");
+              });
             });
-          });
-        }
+          } else {
+            // Chưa xem -> Thêm mới + Tăng view count
+            const qInsert = "INSERT INTO ReadHistory(user_id, post_id, viewed_at) VALUES (?, ?, NOW())";
+            connection.query(qInsert, [userId, postId], (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json(err);
+                });
+              }
+
+              // Update NewsStats (Tạo mới nếu chưa có hoặc update)
+              const qCheckStats = "SELECT post_id FROM NewsStats WHERE post_id = ?";
+              connection.query(qCheckStats, [postId], (err, stats) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json(err);
+                  });
+                }
+
+                let qStatsAction;
+                let qParams;
+
+                if (stats.length === 0) {
+                  qStatsAction = "INSERT INTO NewsStats (post_id, view_count, comment_count, rating_avg) VALUES (?, 1, 0, 0)";
+                  qParams = [postId];
+                } else {
+                  qStatsAction = "UPDATE NewsStats SET view_count = view_count + 1 WHERE post_id = ?";
+                  qParams = [postId];
+                }
+
+                connection.query(qStatsAction, qParams, (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json(err);
+                    });
+                  }
+                  connection.commit((err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).json(err);
+                      });
+                    }
+                    connection.release(); // ✅ XONG VIỆC: TRẢ KẾT NỐI
+                    return res.status(200).json("Đã cập nhật lịch sử.");
+                  });
+                });
+              });
+            });
+          }
+        });
       });
     });
   });
